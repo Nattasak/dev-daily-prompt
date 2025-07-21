@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, X, Pin } from 'lucide-react'
 
 interface Prompt {
   title: string
@@ -156,6 +156,7 @@ const prompts: Prompt[] = [
 ]
 
 const categoryOrder = [
+  'All',
   'New Feature/Function Development',
   'Maintainability & Refactoring',
   'Testing & Debugging',
@@ -165,7 +166,7 @@ const categoryOrder = [
   'Architecture & Design',
 ]
 
-const categories = Array.from(new Set(prompts.map(p => p.category))).sort((a, b) => {
+const categories = Array.from(new Set(['All', ...prompts.map(p => p.category)])).sort((a, b) => {
   const indexA = categoryOrder.indexOf(a)
   const indexB = categoryOrder.indexOf(b)
 
@@ -181,22 +182,46 @@ const categories = Array.from(new Set(prompts.map(p => p.category))).sort((a, b)
   return indexA - indexB
 })
 
+const categoryColors: { [key: string]: { bg: string, text: string, ring: string } } = {
+  'Maintainability & Refactoring': { bg: 'bg-blue-600', text: 'text-white', ring: 'ring-blue-400' },
+  'Performance Optimization': { bg: 'bg-green-600', text: 'text-white', ring: 'ring-green-400' },
+  'Testing & Debugging': { bg: 'bg-red-600', text: 'text-white', ring: 'ring-red-400' },
+  'Code Understanding & Documentation': { bg: 'bg-purple-600', text: 'text-white', ring: 'ring-purple-400' },
+  'New Feature/Function Development': { bg: 'bg-yellow-600', text: 'text-white', ring: 'ring-yellow-400' },
+  'Architecture & Design': { bg: 'bg-indigo-600', text: 'text-white', ring: 'ring-indigo-400' },
+  'Multi-purpose': { bg: 'bg-pink-600', text: 'text-white', ring: 'ring-pink-400' },
+  'All': { bg: 'bg-gray-600', text: 'text-white', ring: 'ring-gray-400' },
+}
+
 export default function Home() {
   const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState<string>('Maintainability & Refactoring')
+  const [selectedCategory, setSelectedCategory] = useState<string>('All')
+  const [searchTerm, setSearchTerm] = useState<string>('')
+  const [pinnedPrompts, setPinnedPrompts] = useState<string[]>([])
 
-  // Load selected category from localStorage on component mount
   useEffect(() => {
     const savedCategory = localStorage.getItem('selectedCategory')
     if (savedCategory) {
       setSelectedCategory(savedCategory)
     }
+    const savedPinned = localStorage.getItem('pinnedPrompts')
+    if (savedPinned) {
+      try {
+        setPinnedPrompts(JSON.parse(savedPinned))
+      } catch (e) {
+        console.error("Failed to parse pinned prompts from localStorage", e)
+        setPinnedPrompts([])
+      }
+    }
   }, [])
 
-  // Save selected category to localStorage whenever it changes
   useEffect(() => {
     localStorage.setItem('selectedCategory', selectedCategory)
   }, [selectedCategory])
+
+  useEffect(() => {
+    localStorage.setItem('pinnedPrompts', JSON.stringify(pinnedPrompts))
+  }, [pinnedPrompts])
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text)
@@ -204,51 +229,178 @@ export default function Home() {
     setTimeout(() => setCopiedPrompt(null), 1500)
   }
 
-  const filteredPrompts = prompts.filter(prompt => prompt.category === selectedCategory)
+  const handlePinToggle = (promptTitle: string) => {
+    setPinnedPrompts(prevPinned => {
+      if (prevPinned.includes(promptTitle)) {
+        return prevPinned.filter(title => title !== promptTitle)
+      } else {
+        return [promptTitle, ...prevPinned]
+      }
+    })
+  }
+
+  const highlightText = (text: string, highlight: string) => {
+    if (!highlight.trim()) {
+      return <span>{text}</span>
+    }
+    const regex = new RegExp(`(${highlight})`, 'gi')
+    const parts = text.split(regex)
+    return (
+      <span>
+        {parts.map((part, i) =>
+          regex.test(part) ? (
+            <mark key={i} className="bg-yellow-300 dark:bg-yellow-600 text-black dark:text-white rounded px-0.5">
+              {part}
+            </mark>
+          ) : (
+            part
+          )
+        )}
+      </span>
+    )
+  }
+
+  const filteredPrompts = prompts.filter(prompt => {
+    const matchesCategory = selectedCategory === 'All' || prompt.category === selectedCategory
+    const lowerCaseSearchTerm = searchTerm.toLowerCase()
+    const matchesSearch =
+      prompt.title.toLowerCase().includes(lowerCaseSearchTerm) ||
+      prompt.text.toLowerCase().includes(lowerCaseSearchTerm)
+    return matchesCategory && matchesSearch
+  })
+
+  const sortedFilteredPrompts = [...filteredPrompts].sort((a, b) => {
+    const aIsPinned = pinnedPrompts.includes(a.title)
+    const bIsPinned = pinnedPrompts.includes(b.title)
+
+    if (aIsPinned && !bIsPinned) {
+      return -1
+    }
+    if (!aIsPinned && bIsPinned) {
+      return 1
+    }
+
+    if (aIsPinned && bIsPinned) {
+      const aIndex = pinnedPrompts.indexOf(a.title)
+      const bIndex = pinnedPrompts.indexOf(b.title)
+      return aIndex - bIndex
+    }
+
+    return 0
+  })
 
   return (
     <main className="p-6">
       <div className="mb-6 flex flex-wrap justify-center gap-2">
-        {categories.map(category => (
-          <Button
-            key={category}
-            variant={selectedCategory === category ? 'default' : 'outline'}
-            onClick={() => setSelectedCategory(category)}
-            className="rounded-lg"
+        {categories.map(category => {
+          const colors = categoryColors[category] || { bg: 'bg-gray-200', text: 'text-gray-800', ring: 'ring-gray-400' }
+          const isSelected = selectedCategory === category
+
+          return (
+            <Button
+              key={category}
+              onClick={() => setSelectedCategory(isSelected ? 'All' : category)}
+              className={`rounded-lg transition-all duration-200 cursor-pointer
+                ${colors.bg} ${colors.text}
+                ${isSelected
+                  ? `ring-2 ${colors.ring} ring-offset-2 ring-offset-black`
+                  : `border-2 border-transparent`
+                }
+                hover:${colors.bg.replace('600', '700')} focus:${colors.bg.replace('600', '700')}
+              `}
+            >
+              {category}
+            </Button>
+          )
+        })}
+      </div>
+
+      <div className="mb-6 flex justify-center relative w-full max-w-md mx-auto">
+        <input
+          type="text"
+          placeholder="Search prompts by title or text..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          className="w-full p-2 pr-10 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+        />
+        {searchTerm && (
+          <button
+            onClick={() => setSearchTerm('')}
+            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded-full text-gray-500 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600 focus:outline-none"
+            aria-label="Clear search"
           >
-            {category}
-          </Button>
-        ))}
+            <X className="h-4 w-4" />
+          </button>
+        )}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-        {filteredPrompts.map((prompt) => (
-          <Card
-            key={prompt.title}
-            className={`hover:shadow-lg transition-all cursor-pointer rounded-lg ${
-              copiedPrompt === prompt.text ? 'bg-green-50/50 dark:bg-green-900/50' : ''
-            }`}
-            onClick={() => handleCopy(prompt.text)}
-          >
-            <CardContent className="py-0 px-5">
-              <h2 className={`text-lg font-semibold mb-2 ${
-                copiedPrompt === prompt.text ? 'text-green-700 dark:text-green-300' : ''
-              }`}>
-                {prompt.title}
-              </h2>
-              <p className="text-sm text-muted-foreground mb-3">{prompt.text}</p>
-              <div className="flex justify-end items-center">
-                <Button variant="secondary" size="icon" className="rounded-md">
+        {sortedFilteredPrompts.map((prompt) => {
+          const isPinned = pinnedPrompts.includes(prompt.title)
+          return (
+            <Card
+              key={prompt.title}
+              className={`relative hover:shadow-lg transition-all cursor-pointer rounded-lg ${
+                copiedPrompt === prompt.text ? 'bg-green-50/50 dark:bg-green-900/50' : ''
+              }`}
+              onClick={() => handleCopy(prompt.text)}
+            >
+              <CardContent className="py-0 px-5 pb-12 pt-10">
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-2 right-2 rounded-md z-10 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handlePinToggle(prompt.title)
+                  }}
+                  aria-label={isPinned ? "Unpin prompt" : "Pin prompt"}
+                >
+                  {isPinned ? (
+                    <Pin className="h-4 w-4 text-yellow-500 fill-current" />
+                  ) : (
+                    <Pin className="h-4 w-4 text-gray-400" />
+                  )}
+                </Button>
+
+                <Button
+                  variant="secondary"
+                  size="icon"
+                  className="absolute top-2 right-[48px] rounded-md z-10 cursor-pointer"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleCopy(prompt.text)
+                  }}
+                  aria-label="Copy prompt text"
+                >
                   {copiedPrompt === prompt.text ? (
                     <Check className="h-4 w-4 text-green-500" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
                 </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+
+                <h2 className={`text-lg font-semibold mb-2 ${
+                  copiedPrompt === prompt.text ? 'text-green-700 dark:text-green-300' : ''
+                }`}>
+                  {highlightText(prompt.title, searchTerm)}
+                </h2>
+                <p className="text-sm text-muted-foreground mb-3">
+                  {highlightText(prompt.text, searchTerm)}
+                </p>
+                <div
+                  className={`absolute bottom-5 left-4 px-2 py-1 text-xs font-semibold rounded-full cursor-pointer ${categoryColors[prompt.category]?.bg || 'bg-gray-200 dark:bg-gray-700'} ${categoryColors[prompt.category]?.text || 'text-gray-800 dark:text-gray-200'}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSelectedCategory(selectedCategory === prompt.category ? 'All' : prompt.category)
+                  }}
+                >
+                  {prompt.category}
+                </div>
+              </CardContent>
+            </Card>
+          )
+        })}
       </div>
     </main>
   )
