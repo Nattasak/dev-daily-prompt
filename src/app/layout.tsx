@@ -1,10 +1,11 @@
-'use client'
+// src/app/layout.tsx
+// This is a Server Component by default
 
-import { createContext, useContext, useState, useEffect } from 'react'
+import type { Metadata } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import "./globals.css"
-import { Button } from '@/components/ui/button'
-import { Sun, Moon } from 'lucide-react'
+import { ClientThemeProvider } from '@/components/theme-provider'
+import { ThemeToggleButton } from '@/components/theme-toggle-button'
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,70 +17,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 })
 
-interface ThemeContextType {
-  theme: 'light' | 'dark'
-  toggleTheme: () => void
-}
-
-const ThemeContext = createContext<ThemeContextType | undefined>(undefined)
-
-export function useTheme() {
-  const context = useContext(ThemeContext)
-  if (context === undefined) {
-    throw new Error('useTheme must be used within a ThemeProvider')
-  }
-  return context
-}
-
-function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState<'light' | 'dark'>('light')
-
-  useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null
-    if (savedTheme) {
-      setTheme(savedTheme)
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      setTheme('dark')
-    }
-  }, [])
-
-  useEffect(() => {
-    const root = window.document.documentElement
-    root.classList.remove('light', 'dark')
-    root.classList.add(theme)
-    localStorage.setItem('theme', theme)
-  }, [theme])
-
-  const toggleTheme = () => {
-    setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'))
-  }
-
-  return (
-    <ThemeContext.Provider value={{ theme, toggleTheme }}>
-      {children}
-    </ThemeContext.Provider>
-  )
-}
-
-function ThemeToggleButton() {
-  const { theme, toggleTheme } = useTheme()
-
-  return (
-    <div className="absolute top-0 right-0 z-50">
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={toggleTheme}
-        className="rounded-full"
-      >
-        {theme === 'light' ? (
-          <Sun className="h-5 w-5" />
-        ) : (
-          <Moon className="h-5 w-5" />
-        )}
-      </Button>
-    </div>
-  )
+export const metadata: Metadata = {
+  title: "Dev Daily Prompt",
+  description: "A daily prompt generator for developers",
 }
 
 export default function RootLayout({
@@ -87,19 +27,17 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  useEffect(() => {
-    document.title = "Dev Daily Prompt"
-  }, [])
-
   return (
     <html lang="en">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <ThemeProvider>
+        {/* Wrap children with the client-side ThemeProvider */}
+        <ClientThemeProvider>
+          {/* Render the client-side ThemeToggleButton */}
           <ThemeToggleButton />
           {children}
-        </ThemeProvider>
+        </ClientThemeProvider>
       </body>
     </html>
   )
