@@ -1,9 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react' 
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Copy } from 'lucide-react'
+import { Copy, Check } from 'lucide-react'
 
 interface Prompt {
   title: string
@@ -131,10 +131,29 @@ const prompts: Prompt[] = [
     title: '🧙 Ultimate Code Transformation',
     text: 'Perform a comprehensive refactoring and optimization of this legacy function. Ensure the resulting code is clean, highly readable, easily testable, and adheres to modern best practices in [language/framework]. Focus on improving performance, modularity, and maintainability, and provide explanations for key changes.',
     category: 'Multi-purpose'
+  },
+  {
+    title: '🔄 Full Stack Feature Development',
+    text: 'Develop a complete full-stack feature, including database schema design, API endpoint implementation, and responsive UI components for [feature name].',
+    category: 'Multi-purpose'
+  },
+  {
+    title: '📈 Performance & Security Audit',
+    text: 'Conduct a thorough audit of this application for performance bottlenecks and security vulnerabilities. Provide detailed recommendations and code examples for improvements.',
+    category: 'Multi-purpose'
+  },
+  {
+    title: '📚 Codebase Onboarding & Documentation',
+    text: 'Generate a comprehensive onboarding guide for new developers joining this codebase. Include architecture overview, key modules, setup instructions, and essential documentation.',
+    category: 'Multi-purpose'
+  },
+  {
+    title: '📖 Code Summary & Explanation',
+    text: 'Analyze the provided code snippet and summarize its purpose, main logic, and any key conditions or flows in simple, easy-to-understand terms. Focus on what the code does and how it achieves its goal.',
+    category: 'Code Understanding & Documentation'
   }
 ]
 
-// Define a custom order for categories based on typical developer daily use
 const categoryOrder = [
   'New Feature/Function Development',
   'Maintainability & Refactoring',
@@ -145,27 +164,38 @@ const categoryOrder = [
   'Architecture & Design',
 ]
 
-// Extract unique categories and sort them based on the custom order
 const categories = Array.from(new Set(prompts.map(p => p.category))).sort((a, b) => {
   const indexA = categoryOrder.indexOf(a)
   const indexB = categoryOrder.indexOf(b)
 
-  // Handle categories not in the custom order (place them at the end, alphabetically)
   if (indexA === -1 && indexB === -1) {
     return a.localeCompare(b)
   }
   if (indexA === -1) {
-    return 1 // a comes after b
+    return 1
   }
   if (indexB === -1) {
-    return -1 // a comes before b
+    return -1
   }
-  return indexA - indexB // Sort by custom order
+  return indexA - indexB
 })
 
 export default function Home() {
   const [copiedPrompt, setCopiedPrompt] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState<string>('Maintainability & Refactoring')
+
+  // Load selected category from localStorage on component mount
+  useEffect(() => {
+    const savedCategory = localStorage.getItem('selectedCategory')
+    if (savedCategory) {
+      setSelectedCategory(savedCategory)
+    }
+  }, [])
+
+  // Save selected category to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem('selectedCategory', selectedCategory)
+  }, [selectedCategory])
 
   const handleCopy = async (text: string) => {
     await navigator.clipboard.writeText(text)
@@ -194,16 +224,22 @@ export default function Home() {
         {filteredPrompts.map((prompt) => (
           <Card
             key={prompt.title}
-            className="hover:shadow-lg transition-all cursor-pointer rounded-lg"
+            className={`hover:shadow-lg transition-all cursor-pointer rounded-lg ${
+              copiedPrompt === prompt.text ? 'bg-green-50/50 dark:bg-green-900/50' : ''
+            }`}
             onClick={() => handleCopy(prompt.text)}
           >
-            <CardContent className="p-4">
-              <h2 className="text-lg font-semibold mb-2">{prompt.title}</h2>
+            <CardContent className="py-0 px-5">
+              <h2 className={`text-lg font-semibold mb-2 ${
+                copiedPrompt === prompt.text ? 'text-green-700 dark:text-green-300' : ''
+              }`}>
+                {prompt.title}
+              </h2>
               <p className="text-sm text-muted-foreground mb-3">{prompt.text}</p>
               <div className="flex justify-end items-center">
                 <Button variant="secondary" size="icon" className="rounded-md">
                   {copiedPrompt === prompt.text ? (
-                    'Copied!'
+                    <Check className="h-4 w-4 text-green-500" />
                   ) : (
                     <Copy className="h-4 w-4" />
                   )}
