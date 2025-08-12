@@ -75,8 +75,8 @@ export function PromptGuidance() {
               <span className="font-semibold">ตอนมี Issue / Bug:</span>
               <p className="my-1">
                 <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">
-                  Act as a debugger. I'm getting an error in the following React
-                  component...
+                  Act as a debugger. I&apos;m getting an error in the following
+                  React component...
                 </code>
               </p>
             </li>
